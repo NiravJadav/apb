@@ -7,6 +7,8 @@ reg PCLK;
 reg PRESET;
 reg PREADY;
 reg [WIDTH-1:0]PRDATA;
+reg RD_WR;
+reg [WIDTH-1:0]DATA =0;
 
 wire PSELECT;
 wire PENABLE;
@@ -15,7 +17,7 @@ wire [WIDTH-1:0] PWDATA;
 wire [WIDTH-1:0] PADDR;
 
 localparam CP = 10; 
-apb_bridge brige (
+apb_bridge brige (	.rd_wr(RD_WR),
 		        .transfer(TRANSFER),	// peripheral transfer 
 			.pclk(PCLK),		// peripheral clock
 			.preset_n(PRESET),	// peripheral reser 
@@ -37,17 +39,16 @@ end
 
 initial
 begin
-	TRANSFER <= 0;	PRESET <=0;	PREADY <=0;
+	TRANSFER = 0;	PRESET =0;  PREADY =0;  RD_WR =0;
 
-	#2	PRESET <= 1;	TRANSFER <=1;
+	#(CP/2)	PRESET = 1;  TRANSFER =1; RD_WR =1; 
+	#(CP/2) TRANSFER =0; 
+	#(CP) 
+	#(CP/2)	TRANSFER =1; RD_WR = 0; DATA = 'hee; 
+	#(CP/2)	TRANSFER = 0;
+	#CP
+	#CP $finish;
 
-	#(CP-2)	#CP	TRANSFER <= 0;
-
-//	#CP #CP	#(CP+CP/2)	PREADY <=1;
-
-//	#CP	PREADY <=0;
-
-//	#CP	$finish;
 
 
 end
@@ -55,12 +56,18 @@ end
 
 always@(PENABLE)
 	begin
-	if(PENABLE)  PREADY <=1;
-	else if(!PENABLE) PREADY <= 0;
+	if(PENABLE)
+		begin
+		  PREADY <=1;
+	          	if(PSELECT &  PWRITE)
+			DATA <= PWDATA;
+			else if(PSELECT & (!PWRITE))
+			PRDATA <= DATA;
+		end
+	else if(!PENABLE) begin PREADY <= 0; PRDATA <= 0; end
 	end
 
 
-
-always@(posedge PCLK)
-	$display("TRANSFER = %b,PCLK = %b,PENABLE = %b, PREADY = %b, PSELECT = %b",TRANSFER,PCLK,PENABLE,PREADY,PSELECT);
+//always@(posedge PCLK)
+//	$display("TRANSFER = %b,PCLK = %b,PENABLE = %b, PREADY = %b, PSELECT = %b",TRANSFER,PCLK,PENABLE,PREADY,PSELECT);
 endmodule 
